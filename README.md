@@ -1,6 +1,6 @@
 # language-classifier
 Simple but working language classifier (EN &amp; DE for now).
-It's based on LSA space Corpora [1] (DE & EN) provided by University of Tübingen
+It's based on LSA space Corpora [[1]] (DE & EN) provided by University of Tübingen
 
 
 
