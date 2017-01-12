@@ -1,9 +1,9 @@
-#### simple but working Classifier
-#### DE / EN
+#### simple but working Classifier für dein Projekt Guttenwind
+#### Erstmal nur für DE / EN
 
 setwd("/wd/r_wd")
 system("mkdir langdetect")
-setwd("/wd/r_wd/langdetect")
+setwd("/wd/langdetect_neu")
 getwd()
 
 # starte clean
@@ -12,8 +12,10 @@ rm(list = ls())
 # Corpora laden
 load("dewak100k_lsa.rda")
 load("EN_100k_lsa.rda")
+load("frwak100k.rda")
 corpus.de <- dewak100k_lsa
 corpus.en <- EN_100k_lsa
+corpus.fr <- frwak100k
 
 # Lade libraries
 for (package in c("tm", "LSAfun")) {
@@ -26,14 +28,19 @@ for (package in c("tm", "LSAfun")) {
 
 ##### Bereinige Corpora von Redundanzen, bspw. Wörter die in De & En gleich sind (zB "hand") um Fehler zu vermeiden
 corpus.de_clean <- setdiff(rownames(corpus.de), rownames(corpus.en))
-
+rm(corpus.de)
 corpus.en_clean <- setdiff(rownames(corpus.en), rownames(corpus.de))
+rm(corpus.en)
+corpus.fr_clean <- setdiff(rownames(corpus.en), rownames(corpus.fr))
+rm(corpus.fr)
+
+
 
 #################################################
 ####################Lade je 3 Bücher auf EN & DE#
 # english books##################################
 #################################################
-download.file("http://ebooks.hyperion.bz/api/get/5866d833164c57711f6d09e1/txt", 
+download.file("http://ebooks.hyperion.bz/api/get/5871f26a164c571591beeb57/txt", 
   "rowling_en.txt", mode = "wb")
 txt_1_en <- read.csv2("rowling_en.txt", stringsAsFactors = FALSE, 
   header = FALSE, strip.white = TRUE)
@@ -52,7 +59,7 @@ txt_3_en <- read.csv2("3_en.txt", stringsAsFactors = FALSE, header = FALSE,
 ###################################
 # german books#####################
 ##################################
-download.file("http://ebooks.hyperion.bz/api/get/5866d6ce164c57711f6c0fbd/txt", 
+download.file("http://ebooks.hyperion.bz/api/get/5866d675164c57711f6bd1fa/txt", 
   "1_de.txt", mode = "wb")
 txt_1_de <- read.csv2("1_de.txt", stringsAsFactors = FALSE, header = FALSE, 
   strip.white = TRUE)
@@ -68,9 +75,11 @@ txt_3_de <- read.csv2("3_de.txt", stringsAsFactors = FALSE, header = FALSE,
   strip.white = TRUE)
 
 
+
 ###################################
 ########Classifier#################
 ###################################
+
 classify_lang <- function(txt) {
   # sample Satz > n Wörter
   wordcount <- 1
@@ -98,24 +107,31 @@ classify_lang <- function(txt) {
   
   for_german <- intersect(dtm$dimnames$Terms, corpus.de_clean)
   for_english <- intersect(dtm$dimnames$Terms, corpus.en_clean)
+  for_french <- intersect(dtm$dimnames$Terms, corpus.fr_clean)
   
-  ratio <- function(de, en) {
+  ratio <- function(de, en, fr) {
     ratio.de <<- length(de)/length(words.per.row)
     ratio.en <<- length(en)/length(words.per.row)
+    ratio.fr <<- length(fr)/length(words.per.row)
+    
     
     if (ratio.de == Inf) {
       ratio.de <- 0
     } else if (ratio.en == Inf) {
       ratio.en <- 0
+    }else if (ratio.fr == Inf) {
+      ratio.fr <- 0
     }
     
-    if (ratio.en > ratio.de) {
+    if (ratio.en > (ratio.de &&  ratio.fr)) {
       outcome <<- "english"
-    } else {
+    } else if (ratio.de > ratio.en && ratio.fr) {
       outcome <<- "deutsch"
+    }else if (ratio.fr > ratio.en &&  ratio.de) {
+      outcome <<- "französisch"
     }
   }
-  ratio(for_german, for_english)
+  ratio(for_german, for_english, for_french)
   
   cat("Label = ", outcome, " ", "\n")
   label <<- outcome
@@ -131,14 +147,15 @@ classify_lang(txt_1_de)
 ###################################
 ###erste Diagnose über n samples:##
 ###################################
-#für je 3 Bücher pro Sprache 3mal (einzelnen Satz) gesampled
+#für je 3 Bücher pro Sprache x-mal (einzelnen Satz) gesampled
 
-texts <- list(txt_1_de, txt_2_de, txt_3_de, txt_1_en, txt_2_en, txt_3_en)
+texts <- list(txt_1_de,# txt_2_de, txt_3_de,
+              txt_1_en)#, txt_2_en, txt_3_en)
 
 count <- 0
 row <- c()
 diagnose <- c()
-while (count <= 3) {
+while (count <= 2) {
   count <- count + 1
   for (txt in seq_along(texts)) {
     classify_lang(texts[[txt]])
@@ -151,7 +168,6 @@ while (count <= 3) {
     }
     rm(label)
   }
-  
 }
 
 #View(diagnose)
@@ -160,3 +176,4 @@ right_classifications <- as.integer(sum(diagnose[, 1] == diagnose[, 2]))
 performance <- (length(diagnose)/right_classifications/2)
 
 cat("Performance der Klassifikation: ", (performance*100), "% richtig gelabelt")
+
